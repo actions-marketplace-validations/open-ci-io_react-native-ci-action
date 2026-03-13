@@ -1,0 +1,80 @@
+name: 'OpenCI React Native CI'
+description: 'Lint and test a React Native (Expo) project'
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
+  package-manager:
+    description: 'Package manager: npm, yarn, or pnpm'
+    required: false
+    default: 'npm'
+  working-directory:
+    description: 'Working directory for the project'
+    required: false
+    default: '.'
+  skip-lint:
+    description: 'Skip ESLint step'
+    required: false
+    default: 'false'
+  skip-test:
+    description: 'Skip test step'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        case "${{ inputs.package-manager }}" in
+          yarn)
+            yarn install --frozen-lockfile
+            ;;
+          pnpm)
+            npm install -g pnpm
+            pnpm install --frozen-lockfile
+            ;;
+          *)
+            npm ci
+            ;;
+        esac
+
+    - name: Lint
+      if: inputs.skip-lint != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npx eslint . --max-warnings 0
+
+    - name: TypeScript type-check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npx tsc --noEmit
+
+    - name: Test
+      if: inputs.skip-test != 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        case "${{ inputs.package-manager }}" in
+          yarn)
+            yarn test --passWithNoTests
+            ;;
+          pnpm)
+            pnpm test --passWithNoTests
+            ;;
+          *)
+            npm test -- --passWithNoTests
+            ;;
+        esac
